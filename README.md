@@ -97,6 +97,40 @@ The Firebase web keys are **not secrets** (they ship in every web build); access
 is secured by the auth + rules above, so `.env.local` is git-ignored only so
 each deployment uses its own project.
 
+## Deploy (Firebase Hosting)
+
+The app is a static build, hosted for free on Firebase Hosting (Spark plan).
+
+**One-time setup**
+
+1. Install the Firebase CLI: `npm install -g firebase-tools`
+2. Log in: `firebase login` (opens a browser for Google sign-in).
+3. Make sure `.firebaserc` points at your project (its `projects.default` is
+   your Firebase project ID), and `.env.local` holds that project's web config
+   (see *Cloud sync* above) so the production build enables sign-in.
+
+**Deploy**
+
+```bash
+npm run deploy            # build, then deploy hosting + Firestore rules
+npm run deploy:hosting    # build + deploy only the site
+npm run deploy:rules      # deploy only firestore.rules
+```
+
+The live URL is `https://<project-id>.web.app` (also `…firebaseapp.com`).
+
+**After the first deploy** — in the [Firebase console](https://console.firebase.google.com/):
+
+- **Authentication → Settings → Authorized domains**: make sure both
+  `<project-id>.web.app` and `<project-id>.firebaseapp.com` are listed, or
+  Google sign-in fails with `auth/unauthorized-domain`.
+- **Firestore → Rules**: confirm the deployed rules match `firestore.rules`
+  (each user can touch only `users/{uid}`).
+
+**Redeploy after changes**: just run `npm run deploy` again. Config lives in
+`firebase.json` (SPA rewrite + cache headers: 1-year immutable for
+`/assets/**`, no-cache for `index.html`).
+
 ## How it works
 
 1. **Space (start screen).** The app opens on the Three.js scene — Earth, Moon,

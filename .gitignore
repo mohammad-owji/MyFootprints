@@ -28,3 +28,8 @@ Thumbs.db
 .vite/
 *.tsbuildinfo
 vite.config.ts.timestamp-*.mjs
+
+# firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
