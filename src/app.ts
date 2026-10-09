@@ -93,11 +93,6 @@ export class App {
       <main class="app">
         <section id="globe-screen" class="screen screen--globe is-active" aria-label="Start screen">
           <div id="globe-stage" class="globe-stage"></div>
-          <div class="globe-intro">
-            <h1 class="brand">MyFootprints</h1>
-            <p class="hint"><span>Click the Earth to explore</span></p>
-            <div class="counter counter--start" aria-live="polite"></div>
-          </div>
         </section>
 
         <section id="map-screen" class="screen screen--map" aria-label="World map" aria-hidden="true">
