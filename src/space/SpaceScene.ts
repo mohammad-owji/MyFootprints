@@ -4,13 +4,39 @@ import { Earth } from "./Earth";
 import { Moon } from "./Moon";
 import { Sun } from "./Sun";
 import { Starfield } from "./Starfield";
+import { Saturn } from "./Saturn";
+import { Mars } from "./Mars";
+import { Comet } from "./Comet";
 import type { StartScene } from "@/components/StartScene";
 import type { CountryId } from "@/storage/VisitedRepository";
 
-const EARTH_RADIUS = 1;
-const FOV = 38;
-const EARTH_HEIGHT_FRACTION = 0.34; // Earth diameter as a share of viewport height
-const AUTO_ROTATE = 0.045; // rad/s
+/**
+ * Tweakable scene settings — adjust sizes, positions and timing here.
+ */
+const CONFIG = {
+  earthRadius: 1,
+  earthHeightFraction: 0.34, // Earth diameter as a share of viewport height
+  fov: 38,
+  autoRotate: 0.045, // rad/s
+  starCount: 6000,
+  // Sun: light comes from slightly in front (keeps the Earth's day side lit);
+  // the sprite sits in the upper-right corner as the visible sun.
+  sunLightPos: [5, 3.5, 4.5] as [number, number, number],
+  sunSpritePos: [6, 4, -3.5] as [number, number, number],
+  saturn: {
+    radius: 0.3,
+    ringInner: 1.3,
+    ringOuter: 2.1,
+    tiltDeg: 24,
+    position: [5, -2.6, -12] as [number, number, number],
+  },
+  mars: {
+    radius: 0.16,
+    position: [-5.5, 3, -10] as [number, number, number],
+  },
+  comet: { minGap: 20, maxGap: 60 }, // seconds between comets
+};
+
 const OPEN_DURATION = 1100; // ms, cinematic zoom into the Earth
 const OPEN_DIST = 1.28; // camera distance at the end of the zoom (Earth fills view)
 
@@ -20,9 +46,10 @@ function easeInOutCubic(t: number): number {
 }
 
 /**
- * Three.js start screen: a small Earth in deep space with a Moon, a distant Sun
- * and a starfield. Implements {@link StartScene} so it is a drop-in for the
- * canvas globe. All GPU resources are released in {@link dispose}.
+ * Three.js start screen: a lit Earth in deep space with a Moon, a distant Sun,
+ * Saturn and Mars in the background, a starfield, and occasional comets.
+ * Implements {@link StartScene} so it is a drop-in for the canvas globe. All GPU
+ * resources are released in {@link dispose}.
  */
 export class SpaceScene implements StartScene {
   private readonly renderer: THREE.WebGLRenderer;
@@ -34,7 +61,11 @@ export class SpaceScene implements StartScene {
   private readonly moon: Moon;
   private readonly sun: Sun;
   private readonly stars: Starfield;
-  private readonly ambient: THREE.AmbientLight;
+  private readonly saturn: Saturn;
+  private readonly mars: Mars;
+  private readonly comet: Comet;
+  private readonly hemi: THREE.HemisphereLight;
+  private nextComet: number;
 
   private readonly clock = new THREE.Clock();
   private raf = 0;
@@ -74,21 +105,30 @@ export class SpaceScene implements StartScene {
     this.renderer.setClearColor(0x05070b, 1);
     this.renderer.domElement.className = "space-canvas";
 
-    this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 400);
+    this.camera = new THREE.PerspectiveCamera(CONFIG.fov, 1, 0.1, 400);
 
-    this.earth = new Earth(EARTH_RADIUS);
-    this.moon = new Moon(EARTH_RADIUS);
-    this.sun = new Sun();
-    this.stars = new Starfield(6000, pixelRatio);
+    this.earth = new Earth(CONFIG.earthRadius);
+    this.moon = new Moon(CONFIG.earthRadius);
+    this.sun = new Sun(CONFIG.sunLightPos, CONFIG.sunSpritePos);
+    this.stars = new Starfield(CONFIG.starCount, pixelRatio);
     this.stars.setTwinkle(!this.reducedMotion);
+    this.saturn = new Saturn(CONFIG.saturn);
+    this.mars = new Mars(CONFIG.mars);
+    this.comet = new Comet();
 
-    this.ambient = new THREE.AmbientLight(0x2b3a4d, 0.55);
+    // Fill light so the night side is a very dark blue, never pure black.
+    this.hemi = new THREE.HemisphereLight(0x3b5c80, 0x0a1018, 0.45);
 
     this.scene.add(this.stars.group);
     this.scene.add(this.sun.group);
-    this.scene.add(this.ambient);
+    this.scene.add(this.saturn.group);
+    this.scene.add(this.mars.group);
+    this.scene.add(this.comet.group);
+    this.scene.add(this.hemi);
     this.scene.add(this.earth.group);
     this.earth.group.add(this.moon.group);
+
+    this.nextComet = this.randomCometGap();
   }
 
   mount(parent: HTMLElement): void {
@@ -142,11 +182,19 @@ export class SpaceScene implements StartScene {
     this.moon.dispose();
     this.sun.dispose();
     this.stars.dispose();
+    this.saturn.dispose();
+    this.mars.dispose();
+    this.comet.dispose();
     this.renderer.dispose();
     el.remove();
   }
 
   // --- Render loop -------------------------------------------------------- */
+
+  private randomCometGap(): number {
+    const { minGap, maxGap } = CONFIG.comet;
+    return this.clock.elapsedTime + minGap + Math.random() * (maxGap - minGap);
+  }
 
   private loop = (): void => {
     if (!this.running) return;
@@ -154,22 +202,31 @@ export class SpaceScene implements StartScene {
     const t = this.clock.elapsedTime;
 
     // Earth rotation: auto-rotate + drag inertia.
-    const auto = this.reducedMotion ? 0 : AUTO_ROTATE;
+    const auto = this.reducedMotion ? 0 : CONFIG.autoRotate;
     this.earth.mesh.rotation.y += (auto + this.spinVel) * dt;
     this.spinVel *= Math.pow(0.0001, dt); // frame-rate independent damping
     this.earth.group.rotation.x = this.tilt;
-    this.earth.update(dt, false);
+    this.earth.update(dt);
     this.earth.setHover(this.hovering);
 
     this.moon.update(dt, !this.reducedMotion);
+    this.saturn.update(dt, t, !this.reducedMotion);
+    this.mars.update(dt);
     this.stars.update(t);
 
-    // Parallax easing (starfield shifts opposite the pointer).
+    // Occasional comet (one at a time, disabled for reduced motion).
+    if (!this.reducedMotion) {
+      if (this.comet.active) {
+        if (!this.comet.update(dt, this.camera)) this.nextComet = this.randomCometGap();
+      } else if (t >= this.nextComet) {
+        this.comet.spawn(this.sun.spritePos);
+      }
+    }
+
+    // Parallax easing (camera shift gives natural depth: near moves more).
     if (!this.reducedMotion) {
       this.parallax.x += (this.parallax.tx - this.parallax.x) * Math.min(1, dt * 3);
       this.parallax.y += (this.parallax.ty - this.parallax.y) * Math.min(1, dt * 3);
-      this.stars.group.rotation.y = this.parallax.x * 0.15;
-      this.stars.group.rotation.x = this.parallax.y * 0.15;
     }
 
     // Camera dolly: a timed ease-in-out zoom when opening, otherwise a gentle
@@ -179,8 +236,6 @@ export class SpaceScene implements StartScene {
       const p = Math.min(1, (performance.now() - this.openStart) / OPEN_DURATION);
       this.camDist = this.openFrom + (OPEN_DIST - this.openFrom) * easeInOutCubic(p);
       settle = 1 - p;
-      // Hand off to the map just before the zoom completes, so the crossfade
-      // overlaps the final frames instead of snapping.
       if (!this.opened && p >= 0.92) {
         this.opened = true;
         this.onOpen();
@@ -191,8 +246,8 @@ export class SpaceScene implements StartScene {
 
     const breathe = this.reducedMotion ? 0 : Math.sin(t * 0.25) * 0.12 * settle;
     this.camera.position.set(
-      this.parallax.x * 0.25 * settle,
-      this.parallax.y * 0.25 * settle + breathe,
+      this.parallax.x * 0.3 * settle,
+      this.parallax.y * 0.3 * settle + breathe,
       this.camDist,
     );
     this.camera.lookAt(0, 0, 0);
@@ -212,9 +267,9 @@ export class SpaceScene implements StartScene {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
 
-    // Distance that makes the Earth ~EARTH_HEIGHT_FRACTION of the viewport.
-    const fovY = THREE.MathUtils.degToRad(FOV);
-    this.fitDist = EARTH_RADIUS / (EARTH_HEIGHT_FRACTION * Math.tan(fovY / 2));
+    const fovY = THREE.MathUtils.degToRad(CONFIG.fov);
+    this.fitDist =
+      CONFIG.earthRadius / (CONFIG.earthHeightFraction * Math.tan(fovY / 2));
     if (!this.opening) this.camTarget = this.fitDist;
     if (this.camDist === 9) this.camDist = this.fitDist; // first layout
   };
@@ -285,6 +340,7 @@ export class SpaceScene implements StartScene {
   }
 
   private updateHover(): void {
+    // Only the Earth is clickable; planets and comets are decorative.
     this.raycaster.setFromCamera(this.pointerNdc, this.camera);
     const hit = this.raycaster.intersectObject(this.earth.mesh, false).length > 0;
     this.setHover(hit);

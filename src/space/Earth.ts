@@ -1,110 +1,89 @@
 import * as THREE from "three";
 
-import { createEarthCanvas, drawEarthTexture } from "./earthTexture";
+import {
+  createEarthCanvas,
+  createEmissiveCanvas,
+  drawEarthTexture,
+  drawVisitedEmissive,
+} from "./earthTexture";
+import { makeAtmosphere, type Atmosphere } from "./atmosphere";
 import type { CountryId } from "@/storage/VisitedRepository";
 
-const ATMO_VERT = /* glsl */ `
-  varying vec3 vNormal;
-  varying vec3 vView;
-  void main() {
-    vNormal = normalize(normalMatrix * normal);
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    vView = normalize(-mv.xyz);
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-
-const ATMO_FRAG = /* glsl */ `
-  uniform vec3 uColor;
-  uniform float uIntensity;
-  varying vec3 vNormal;
-  varying vec3 vView;
-  void main() {
-    // A soft halo: broad falloff from the limb inward, with a gentle bright
-    // edge, so it reads as atmosphere rather than a hard outline.
-    float f = 1.0 - abs(dot(vNormal, vView));
-    float glow = pow(f, 2.6) * 0.75 + pow(f, 6.0) * 0.6;
-    gl_FragColor = vec4(uColor, glow * uIntensity);
-  }
-`;
+const ATMO_BASE = 0.6;
+const ATMO_HOVER = 1.0;
 
 /**
- * The Earth: a sphere textured from the procedural world map, lit by the scene's
- * directional (sun) light so it shows a real day/night terminator, wrapped in a
- * soft additive fresnel atmosphere. Auto-rotates and eases a hover-glow boost.
+ * The Earth: a sphere textured from the procedural world map and lit by the
+ * scene's directional (sun) light, so it shows a soft day/night terminator.
+ * Visited countries glow slightly (emissive map) so they stay visible even on
+ * the shadow side. Wrapped in a thin fresnel atmosphere.
  */
 export class Earth {
   readonly group = new THREE.Group();
   readonly mesh: THREE.Mesh;
 
   private readonly canvas: HTMLCanvasElement;
+  private readonly emissiveCanvas: HTMLCanvasElement;
   private readonly texture: THREE.CanvasTexture;
-  private readonly material: THREE.MeshPhongMaterial;
-  private readonly atmosphere: THREE.Mesh;
-  private readonly atmoMat: THREE.ShaderMaterial;
+  private readonly emissiveTexture: THREE.CanvasTexture;
+  private readonly material: THREE.MeshStandardMaterial;
+  private readonly atmosphere: Atmosphere;
 
-  private glow = 0.55;
-  private targetGlow = 0.55;
+  private glow = ATMO_BASE;
+  private targetGlow = ATMO_BASE;
 
   constructor(readonly radius = 1) {
     this.canvas = createEarthCanvas(2048);
+    this.emissiveCanvas = createEmissiveCanvas(1024);
     drawEarthTexture(this.canvas, new Set());
+    drawVisitedEmissive(this.emissiveCanvas, new Set());
+
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = 8;
+    this.emissiveTexture = new THREE.CanvasTexture(this.emissiveCanvas);
+    this.emissiveTexture.colorSpace = THREE.SRGBColorSpace;
 
-    this.material = new THREE.MeshPhongMaterial({
+    this.material = new THREE.MeshStandardMaterial({
       map: this.texture,
-      shininess: 6,
-      specular: new THREE.Color(0x152028),
+      emissive: new THREE.Color(0xffffff),
+      emissiveMap: this.emissiveTexture,
+      emissiveIntensity: 0.55, // visited countries keep a faint green glow
+      roughness: 0.92,
+      metalness: 0.0,
     });
     this.mesh = new THREE.Mesh(
       new THREE.SphereGeometry(radius, 96, 64),
       this.material,
     );
-    // Offset so the texture's seam/longitude sits sensibly toward the camera.
-    this.mesh.rotation.y = -Math.PI / 2;
+    this.mesh.rotation.y = -Math.PI / 2; // sensible default longitude toward camera
     this.group.add(this.mesh);
 
-    this.atmoMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uColor: { value: new THREE.Color(0x6fb1ff) },
-        uIntensity: { value: 0.55 },
-      },
-      vertexShader: ATMO_VERT,
-      fragmentShader: ATMO_FRAG,
-      blending: THREE.AdditiveBlending,
-      side: THREE.BackSide,
-      transparent: true,
-      depthWrite: false,
-    });
-    this.atmosphere = new THREE.Mesh(
-      new THREE.SphereGeometry(radius * 1.14, 96, 64),
-      this.atmoMat,
-    );
-    this.group.add(this.atmosphere);
+    this.atmosphere = makeAtmosphere(radius * 1.07, 0x6ab0ff, ATMO_BASE, 3.2);
+    this.group.add(this.atmosphere.mesh);
   }
 
   setVisited(visited: Set<CountryId>): void {
     drawEarthTexture(this.canvas, visited);
+    drawVisitedEmissive(this.emissiveCanvas, visited);
     this.texture.needsUpdate = true;
+    this.emissiveTexture.needsUpdate = true;
   }
 
   setHover(hovering: boolean): void {
-    this.targetGlow = hovering ? 0.95 : 0.55;
+    this.targetGlow = hovering ? ATMO_HOVER : ATMO_BASE;
   }
 
-  update(dt: number, rotate: boolean): void {
-    if (rotate) this.mesh.rotation.y += dt * 0.05;
+  update(dt: number): void {
     this.glow += (this.targetGlow - this.glow) * Math.min(1, dt * 6);
-    this.atmoMat.uniforms.uIntensity.value = this.glow;
+    this.atmosphere.setIntensity(this.glow);
   }
 
   dispose(): void {
     this.mesh.geometry.dispose();
     this.material.dispose();
     this.texture.dispose();
-    this.atmosphere.geometry.dispose();
-    this.atmoMat.dispose();
+    this.emissiveTexture.dispose();
+    this.atmosphere.dispose();
   }
 }

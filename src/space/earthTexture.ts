@@ -4,23 +4,41 @@ import { getCountries } from "@/utils/countries";
 import type { CountryId } from "@/storage/VisitedRepository";
 
 /**
- * Procedural equirectangular Earth texture, drawn from the world-atlas TopoJSON
- * onto an offscreen canvas — no external image downloads. Oceans are a deep
- * blue-gray, land a slightly lighter tone, and visited countries the app green.
- * Redraw via {@link drawEarthTexture} whenever the visited set changes.
+ * Procedural equirectangular Earth textures, drawn from the world-atlas TopoJSON
+ * onto offscreen canvases — no external image downloads.
+ *
+ * - {@link drawEarthTexture}: the colour map (deep-blue oceans, lighter land,
+ *   visited countries in the app green).
+ * - {@link drawVisitedEmissive}: an emissive map (visited countries green on
+ *   black) so they keep a faint glow even on the Earth's shadow side.
  */
 
-const OCEAN = "#0e1d29";
-const LAND = "#33444f";
-const LAND_STROKE = "rgba(8, 14, 20, 0.55)";
+const OCEAN = "#17496f"; // deep, rich blue
+const LAND = "#5b7183"; // clearly lighter, muted blue-gray
+const LAND_STROKE = "rgba(12, 22, 32, 0.45)";
 const VISITED = "#34d399";
 const VISITED_STROKE = "#1f9d6b";
 
-export function createEarthCanvas(width = 2048): HTMLCanvasElement {
+function makeCanvas(width: number): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = width / 2; // equirectangular is 2:1
   return canvas;
+}
+
+export function createEarthCanvas(width = 2048): HTMLCanvasElement {
+  return makeCanvas(width);
+}
+
+export function createEmissiveCanvas(width = 1024): HTMLCanvasElement {
+  return makeCanvas(width);
+}
+
+function pathFor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
+  const projection = geoEquirectangular().fitSize([canvas.width, canvas.height], {
+    type: "Sphere",
+  });
+  return geoPath(projection, ctx);
 }
 
 export function drawEarthTexture(
@@ -29,15 +47,10 @@ export function drawEarthTexture(
 ): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  const { width, height } = canvas;
-
-  const projection = geoEquirectangular().fitSize([width, height], {
-    type: "Sphere",
-  });
-  const path = geoPath(projection, ctx);
+  const path = pathFor(canvas, ctx);
 
   ctx.fillStyle = OCEAN;
-  ctx.fillRect(0, 0, width, height);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.lineJoin = "round";
   for (const country of getCountries()) {
@@ -52,4 +65,23 @@ export function drawEarthTexture(
   }
 }
 
-export type { CountryId };
+export function drawVisitedEmissive(
+  canvas: HTMLCanvasElement,
+  visited: Set<CountryId>,
+): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  // Black = no emission; green = visited countries glow.
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (visited.size === 0) return;
+
+  const path = pathFor(canvas, ctx);
+  ctx.fillStyle = VISITED;
+  for (const country of getCountries()) {
+    if (!visited.has(country.id)) continue;
+    ctx.beginPath();
+    path(country);
+    ctx.fill();
+  }
+}
