@@ -1,0 +1,68 @@
+.screen--globe {
+  display: grid;
+  place-items: center;
+}
+
+.globe-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.globe-canvas {
+  cursor: grab;
+  touch-action: none;
+  display: block;
+}
+.globe-canvas:active {
+  cursor: grabbing;
+}
+
+.globe-intro {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  pointer-events: none;
+  transform: translateY(-2vh);
+}
+
+.brand {
+  margin: 0;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6);
+}
+
+.hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.hint span {
+  display: inline-block;
+  animation: hint-pulse 2.6s var(--ease) infinite;
+}
+
+@keyframes hint-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(2px);
+  }
+}
+
+/* Position the intro text below the globe rather than over its center. */
+@media (min-height: 560px) {
+  .globe-intro {
+    transform: translateY(33vh);
+  }
+}

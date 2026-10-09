@@ -1,0 +1,140 @@
+.screen--map {
+  display: flex;
+  flex-direction: column;
+}
+
+.map-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(12px, 2.5vw, 22px);
+  pointer-events: none;
+}
+.map-header > * {
+  pointer-events: auto;
+}
+
+.counter {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+.counter-main {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.counter-sub {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+}
+
+.map-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.map-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.map-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+.map-svg:active {
+  cursor: grabbing;
+}
+
+/* Countries --------------------------------------------------------------- */
+.country {
+  fill: var(--land);
+  stroke: var(--land-stroke);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  transition:
+    fill var(--anim) var(--ease),
+    stroke var(--anim) var(--ease);
+}
+.country.is-hover {
+  fill: var(--hover);
+  stroke: #566173;
+}
+.country.is-visited {
+  fill: var(--visited);
+  stroke: var(--visited-stroke);
+  stroke-width: 0.6;
+}
+.country.is-visited.is-hover {
+  fill: #5ee0b0;
+}
+/* Suppress the default UA focus rectangle (drawn as the path's bounding box,
+   which spans the whole map for antimeridian-crossing countries like Russia). */
+.country:focus {
+  outline: none;
+}
+.country:focus-visible {
+  outline: none;
+  stroke: var(--focus);
+  stroke-width: 1.2;
+}
+
+.map-svg:focus {
+  outline: none;
+}
+
+.country-label {
+  fill: #06281d;
+  font-family: var(--font);
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 0.3;
+  user-select: none;
+}
+
+/* Floating hover label ---------------------------------------------------- */
+.map-floating-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  padding: 5px 10px;
+  background: rgba(17, 23, 34, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-9999px, -9999px);
+  transition: opacity var(--anim) var(--ease);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.map-floating-label.is-visible {
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .counter-main {
+    font-size: 0.9rem;
+  }
+}

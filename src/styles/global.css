@@ -1,0 +1,115 @@
+:root {
+  --bg: #0b0f14;
+  --bg-elev: #111722;
+  --land: #232a33;
+  --land-stroke: #2f3744;
+  --visited: #34d399;
+  --visited-stroke: #1f9d6b;
+  --hover: #3b4654;
+  --text: #e6eaf0;
+  --text-dim: #8a93a3;
+  --focus: #60a5fa;
+  --anim: 260ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#app,
+.app {
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  position: relative;
+}
+
+/* Screen stacking + transitions ------------------------------------------- */
+.screen {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--anim) var(--ease),
+    transform var(--anim) var(--ease),
+    visibility 0s linear var(--anim);
+}
+
+.screen.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity var(--anim) var(--ease),
+    transform var(--anim) var(--ease);
+}
+
+/* Globe fades/scales up slightly as it hands off to the map. */
+.screen--globe {
+  transform: scale(1);
+}
+.screen--globe.is-exit {
+  transform: scale(1.12);
+}
+.screen--map {
+  transform: scale(0.98);
+}
+.screen--map.is-active {
+  transform: scale(1);
+}
+
+/* Shared controls --------------------------------------------------------- */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    color var(--anim) var(--ease),
+    background var(--anim) var(--ease),
+    border-color var(--anim) var(--ease);
+}
+.icon-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
