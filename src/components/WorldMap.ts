@@ -8,10 +8,6 @@ import type { CountryId } from "@/storage/VisitedRepository";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-// Pixel-area threshold (at zoom = 1) above which a visited country gets a
-// permanent centroid label. Smaller countries only show their name on hover.
-const LABEL_MIN_AREA = 900;
-
 interface WorldMapOptions {
   /** Toggle a country; resolves with its new visited state. */
   onToggle: (id: CountryId) => Promise<boolean>;
@@ -20,16 +16,16 @@ interface WorldMapOptions {
 /**
  * Interactive flat world map (SVG + d3-zoom).
  *
- * - hover: highlight + floating name label at the cursor
+ * - hover: highlight + the country's name animates in at its centroid
  * - click/tap: toggle visited
- * - visited countries: green fill + centroid label (large ones only)
+ * - visited countries: green fill
  * - wheel / drag / pinch zoom + pan with sensible limits
  */
 export class WorldMap {
   readonly el: HTMLDivElement;
   private readonly svg: Selection<SVGSVGElement, unknown, null, undefined>;
   private readonly zoomLayer: Selection<SVGGElement, unknown, null, undefined>;
-  private readonly floatingLabel: HTMLDivElement;
+  private hoverLabel!: SVGTextElement;
 
   private readonly projection: GeoProjection;
   private readonly path: ReturnType<typeof geoPath>;
@@ -51,11 +47,6 @@ export class WorldMap {
     svgEl.setAttribute("aria-label", "World map. Select a country to mark it visited.");
     this.el.appendChild(svgEl);
 
-    this.floatingLabel = document.createElement("div");
-    this.floatingLabel.className = "map-floating-label";
-    this.floatingLabel.setAttribute("aria-hidden", "true");
-    this.el.appendChild(this.floatingLabel);
-
     this.svg = select(svgEl);
     this.zoomLayer = this.svg.append("g").attr("class", "zoom-layer");
 
@@ -69,6 +60,13 @@ export class WorldMap {
     this.svg.call(this.zoomBehavior);
 
     this.buildPaths();
+
+    // A single hover label, kept on top and repositioned to the hovered
+    // country. It fades/scales in via CSS and persists (hidden) otherwise.
+    this.hoverLabel = document.createElementNS(SVG_NS, "text");
+    this.hoverLabel.setAttribute("class", "country-label");
+    this.hoverLabel.setAttribute("aria-hidden", "true");
+    this.zoomLayer.node()!.appendChild(this.hoverLabel);
   }
 
   setVisited(visited: Set<CountryId>): void {
@@ -96,8 +94,7 @@ export class WorldMap {
       const name = countryName(country);
       p.setAttribute("aria-label", name);
 
-      p.addEventListener("pointerenter", (e) => this.onHover(country, e));
-      p.addEventListener("pointermove", (e) => this.moveFloatingLabel(e));
+      p.addEventListener("pointerenter", () => this.onHover(country));
       p.addEventListener("pointerleave", () => this.onHoverEnd(country));
       p.addEventListener("click", () => this.toggle(country));
       p.addEventListener("keydown", (e) => {
@@ -137,34 +134,24 @@ export class WorldMap {
     const { transform } = event;
     this.currentScale = transform.k;
     this.zoomLayer.attr("transform", transform.toString());
-    // Keep label text and strokes visually constant while zooming.
-    this.zoomLayer
-      .selectAll<SVGTextElement, unknown>("text.country-label")
-      .attr("font-size", (_, i, nodes) => {
-        const base = Number((nodes[i] as SVGTextElement).dataset.base ?? 11);
-        return base / transform.k;
-      });
+    // Keep the label visually constant while zooming.
+    this.applyLabelScale();
   };
 
-  private onHover(country: CountryFeature, e: PointerEvent): void {
+  private onHover(country: CountryFeature): void {
     this.hoveredId = country.id;
     this.pathEls.get(country.id)?.classList.add("is-hover");
-    this.floatingLabel.textContent = countryName(country);
-    this.floatingLabel.classList.add("is-visible");
-    this.moveFloatingLabel(e);
-  }
-
-  private moveFloatingLabel(e: PointerEvent): void {
-    const rect = this.el.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    this.floatingLabel.style.transform = `translate(${x + 14}px, ${y + 14}px)`;
+    this.showHoverLabel(country);
   }
 
   private onHoverEnd(country: CountryFeature): void {
-    if (this.hoveredId === country.id) this.hoveredId = null;
     this.pathEls.get(country.id)?.classList.remove("is-hover");
-    this.floatingLabel.classList.remove("is-visible");
+    // Only hide the label if we are truly leaving (not switching to another
+    // country whose pointerenter already fired first).
+    if (this.hoveredId === country.id) {
+      this.hoveredId = null;
+      this.hoverLabel.classList.remove("is-visible");
+    }
   }
 
   private async toggle(country: CountryFeature): Promise<void> {
@@ -174,38 +161,39 @@ export class WorldMap {
     this.refreshStyles();
   }
 
-  /** Reapply visited classes and rebuild centroid labels. */
+  /** Reapply visited classes. */
   private refreshStyles(): void {
     for (const [id, el] of this.pathEls) {
       el.classList.toggle("is-visited", this.visited.has(id));
     }
-    this.renderLabels();
   }
 
-  private renderLabels(): void {
-    this.zoomLayer.selectAll("text.country-label").remove();
-    const layer = this.zoomLayer.node();
-    if (!layer) return;
-
-    for (const country of this.countries) {
-      if (!this.visited.has(country.id)) continue;
-      const area = this.path.area(country); // pixel area at current fit
-      if (area < LABEL_MIN_AREA) continue; // tiny countries: hover only
-
-      const [cx, cy] = this.path.centroid(country);
-      if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
-
-      // Font size scales gently with country area, then clamps.
-      const base = Math.max(9, Math.min(16, Math.sqrt(area) / 7));
-      const text = document.createElementNS(SVG_NS, "text");
-      text.setAttribute("class", "country-label");
-      text.setAttribute("x", String(cx));
-      text.setAttribute("y", String(cy));
-      text.setAttribute("font-size", String(base / this.currentScale));
-      text.dataset.base = String(base);
-      text.textContent = countryName(country);
-      layer.appendChild(text);
+  /** Position and reveal the hover label at the country's centroid. */
+  private showHoverLabel(country: CountryFeature): void {
+    const [cx, cy] = this.path.centroid(country);
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+      this.hoverLabel.classList.remove("is-visible");
+      return;
     }
+    // Font size scales gently with country area, then clamps.
+    const area = this.path.area(country);
+    const base = Math.max(10, Math.min(18, Math.sqrt(area) / 6));
+    this.hoverLabel.dataset.base = String(base);
+    this.hoverLabel.setAttribute("x", String(cx));
+    this.hoverLabel.setAttribute("y", String(cy));
+    this.hoverLabel.textContent = countryName(country);
+    this.applyLabelScale();
+    this.hoverLabel.classList.add("is-visible");
+  }
+
+  /** Keep the label's font size and halo constant across zoom levels. */
+  private applyLabelScale(): void {
+    const base = Number(this.hoverLabel.dataset.base ?? 12);
+    this.hoverLabel.setAttribute("font-size", String(base / this.currentScale));
+    this.hoverLabel.setAttribute(
+      "stroke-width",
+      String((base * 0.16) / this.currentScale),
+    );
   }
 
   /** Programmatic reset of the zoom/pan (used when entering the screen). */

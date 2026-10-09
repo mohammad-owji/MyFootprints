@@ -96,41 +96,30 @@
   outline: none;
 }
 
+/* Hover label: the country's name at its centroid, shown only on hover and
+   animated in. Light text with a dark halo so it reads on any country. The
+   stroke-width is set on the element (scales with zoom). */
 .country-label {
-  fill: #06281d;
+  fill: #eef3f8;
   font-family: var(--font);
   font-weight: 600;
   text-anchor: middle;
   dominant-baseline: middle;
   pointer-events: none;
   paint-order: stroke;
-  stroke: rgba(255, 255, 255, 0.35);
-  stroke-width: 0.3;
+  stroke: rgba(3, 7, 12, 0.72);
   user-select: none;
-}
-
-/* Floating hover label ---------------------------------------------------- */
-.map-floating-label {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 4;
-  padding: 5px 10px;
-  background: rgba(17, 23, 34, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text);
-  white-space: nowrap;
-  pointer-events: none;
   opacity: 0;
-  transform: translate(-9999px, -9999px);
-  transition: opacity var(--anim) var(--ease);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transform: scale(0.9);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity 190ms var(--ease),
+    transform 190ms var(--ease);
 }
-.map-floating-label.is-visible {
+.country-label.is-visible {
   opacity: 1;
+  transform: scale(1);
 }
 
 @media (max-width: 600px) {
