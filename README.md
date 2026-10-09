@@ -1,9 +1,9 @@
-# 🌍 MyFootprints
+# MyFootprints
 
 A minimal, modern web app for marking the countries you've visited — on a
 cinematic **3D Earth floating in space** and an interactive **world map**.
 
-### ▶️ Live demo: **[myfootprints-world.web.app](https://myfootprints-world.web.app)**
+### Live demo: **[myfootprints-world.web.app](https://myfootprints-world.web.app)**
 
 ![theme](https://img.shields.io/badge/theme-dark-0b0f14)
 ![stack](https://img.shields.io/badge/Vite-TypeScript-646cff)
@@ -16,7 +16,7 @@ thousands of stars and the occasional comet. Click the Earth to zoom into a
 flat world map, pick a country, and mark it visited. Your choices are saved in
 the browser, or synced across all your devices when you sign in with Google.
 
-## ✨ Features
+## Features
 
 - **Space start screen** (Three.js / WebGL)
   - A procedurally textured **Earth**, lit by the Sun with a soft day/night
@@ -40,7 +40,7 @@ the browser, or synced across all your devices when you sign in with Google.
   controls, aria labels, `prefers-reduced-motion` support, and the render loop
   pauses when the tab is hidden.
 
-## 🛠️ Tech stack
+## Tech stack
 
 - [Vite](https://vitejs.dev/) + TypeScript (vanilla — no UI framework)
 - [Three.js](https://threejs.org/) for the WebGL space scene
@@ -51,7 +51,7 @@ the browser, or synced across all your devices when you sign in with Google.
 - [Firebase](https://firebase.google.com/) — Hosting, Auth (Google) & Firestore
 - Plain CSS
 
-## 🚀 Getting started
+## Getting started
 
 Requires Node 18+ (developed on Node 24).
 
@@ -68,7 +68,7 @@ npm run build     # type-check + build to dist/
 npm run preview   # preview the production build
 ```
 
-## ☁️ Cloud sync (Firebase) — optional
+## Cloud sync (Firebase) — optional
 
 To sync visited countries across devices:
 
@@ -98,7 +98,7 @@ sync is configured.
 > access is secured by Auth + Firestore rules. `.env.local` is git-ignored only
 > so each deployment uses its own project.
 
-## 📦 Deploy (Firebase Hosting)
+## Deploy (Firebase Hosting)
 
 A static build, hosted for free on Firebase Hosting (Spark plan).
 
@@ -116,7 +116,7 @@ After the first deploy, in the Firebase console check **Authentication →
 Settings → Authorized domains** includes `<project-id>.web.app` (needed for
 Google sign-in).
 
-## 🧭 How it works
+## How it works
 
 1. **Space (start screen).** Opens on the Three.js scene. Drag to rotate the
    Earth; click it to zoom into the map.
@@ -126,7 +126,7 @@ Google sign-in).
 3. **Persistence.** Each choice saves immediately (localStorage, or Firestore
    when signed in) and is shown green on both the Earth and the flat map.
 
-## 🗂️ Project structure
+## Project structure
 
 ```
 src/
@@ -159,7 +159,7 @@ src/
 └── styles/                # global, globe, space, map, auth, dialog CSS
 ```
 
-## 🎛️ Tuning the space scene
+## Tuning the space scene
 
 Everything is in the `CONFIG` object at the top of
 [`src/space/SpaceScene.ts`](src/space/SpaceScene.ts):
@@ -177,7 +177,7 @@ Everything is in the `CONFIG` object at the top of
 More: atmosphere strength in `Earth.ts` (`ATMO_BASE` / `ATMO_HOVER`); ocean/land
 colours in `earthTexture.ts`. Visited green is `#34d399`.
 
-## 🔌 Swapping the storage backend
+## Swapping the storage backend
 
 All persistence goes through one interface
 ([`VisitedRepository`](src/storage/VisitedRepository.ts)):
@@ -195,7 +195,7 @@ Two implementations ship: `LocalStorageVisitedRepository` (default) and
 localStorage and switches to Firestore on sign-in, seeding the cloud from local
 data the first time. A new backend is just a new class implementing the interface.
 
-## 📝 Notes on the data
+## Notes on the data
 
 - Country ids are ISO 3166-1 numeric codes (as strings), from the world-atlas TopoJSON.
 - Antarctica is excluded from the map and the counter.
