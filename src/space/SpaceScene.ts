@@ -11,6 +11,13 @@ const EARTH_RADIUS = 1;
 const FOV = 38;
 const EARTH_HEIGHT_FRACTION = 0.34; // Earth diameter as a share of viewport height
 const AUTO_ROTATE = 0.045; // rad/s
+const OPEN_DURATION = 1100; // ms, cinematic zoom into the Earth
+const OPEN_DIST = 1.28; // camera distance at the end of the zoom (Earth fills view)
+
+/** Smooth ease-in-out, for the open transition. */
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
 
 /**
  * Three.js start screen: a small Earth in deep space with a Moon, a distant Sun
@@ -53,6 +60,8 @@ export class SpaceScene implements StartScene {
   private camTarget = 9;
   private opening = false;
   private opened = false;
+  private openStart = 0;
+  private openFrom = 9;
 
   constructor(private readonly onOpen: () => void) {
     this.reducedMotion = window.matchMedia(
@@ -163,20 +172,30 @@ export class SpaceScene implements StartScene {
       this.stars.group.rotation.x = this.parallax.y * 0.15;
     }
 
-    // Camera dolly + gentle breathing drift.
-    this.camDist += (this.camTarget - this.camDist) * Math.min(1, dt * 3.2);
-    const breathe = this.reducedMotion ? 0 : Math.sin(t * 0.25) * 0.12;
+    // Camera dolly: a timed ease-in-out zoom when opening, otherwise a gentle
+    // exponential ease toward the target (return from the map, resize).
+    let settle = 1; // fades breathing/parallax out as the zoom progresses
+    if (this.opening) {
+      const p = Math.min(1, (performance.now() - this.openStart) / OPEN_DURATION);
+      this.camDist = this.openFrom + (OPEN_DIST - this.openFrom) * easeInOutCubic(p);
+      settle = 1 - p;
+      // Hand off to the map just before the zoom completes, so the crossfade
+      // overlaps the final frames instead of snapping.
+      if (!this.opened && p >= 0.92) {
+        this.opened = true;
+        this.onOpen();
+      }
+    } else {
+      this.camDist += (this.camTarget - this.camDist) * Math.min(1, dt * 3.2);
+    }
+
+    const breathe = this.reducedMotion ? 0 : Math.sin(t * 0.25) * 0.12 * settle;
     this.camera.position.set(
-      this.parallax.x * 0.25,
-      this.parallax.y * 0.25 + breathe,
+      this.parallax.x * 0.25 * settle,
+      this.parallax.y * 0.25 * settle + breathe,
       this.camDist,
     );
     this.camera.lookAt(0, 0, 0);
-
-    if (this.opening && !this.opened && this.camDist < this.fitDist * 0.3) {
-      this.opened = true;
-      this.onOpen();
-    }
 
     this.renderer.render(this.scene, this.camera);
     this.raf = requestAnimationFrame(this.loop);
@@ -281,6 +300,7 @@ export class SpaceScene implements StartScene {
     if (this.opening) return;
     this.opening = true;
     this.opened = false;
-    this.camTarget = this.fitDist * 0.22; // dolly into the Earth
+    this.openStart = performance.now();
+    this.openFrom = this.camDist;
   }
 }

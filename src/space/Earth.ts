@@ -20,9 +20,11 @@ const ATMO_FRAG = /* glsl */ `
   varying vec3 vNormal;
   varying vec3 vView;
   void main() {
-    // Rim is brightest where the surface faces away from the camera (the limb).
-    float rim = pow(1.0 - abs(dot(vNormal, vView)), 4.0);
-    gl_FragColor = vec4(uColor, rim * uIntensity);
+    // A soft halo: broad falloff from the limb inward, with a gentle bright
+    // edge, so it reads as atmosphere rather than a hard outline.
+    float f = 1.0 - abs(dot(vNormal, vView));
+    float glow = pow(f, 2.6) * 0.75 + pow(f, 6.0) * 0.6;
+    gl_FragColor = vec4(uColor, glow * uIntensity);
   }
 `;
 
@@ -41,8 +43,8 @@ export class Earth {
   private readonly atmosphere: THREE.Mesh;
   private readonly atmoMat: THREE.ShaderMaterial;
 
-  private glow = 0.5;
-  private targetGlow = 0.5;
+  private glow = 0.55;
+  private targetGlow = 0.55;
 
   constructor(readonly radius = 1) {
     this.canvas = createEarthCanvas(2048);
@@ -66,8 +68,8 @@ export class Earth {
 
     this.atmoMat = new THREE.ShaderMaterial({
       uniforms: {
-        uColor: { value: new THREE.Color(0x5a8bd0) },
-        uIntensity: { value: 0.5 },
+        uColor: { value: new THREE.Color(0x6fb1ff) },
+        uIntensity: { value: 0.55 },
       },
       vertexShader: ATMO_VERT,
       fragmentShader: ATMO_FRAG,
@@ -77,7 +79,7 @@ export class Earth {
       depthWrite: false,
     });
     this.atmosphere = new THREE.Mesh(
-      new THREE.SphereGeometry(radius * 1.035, 96, 64),
+      new THREE.SphereGeometry(radius * 1.14, 96, 64),
       this.atmoMat,
     );
     this.group.add(this.atmosphere);
@@ -89,7 +91,7 @@ export class Earth {
   }
 
   setHover(hovering: boolean): void {
-    this.targetGlow = hovering ? 1.1 : 0.5;
+    this.targetGlow = hovering ? 0.95 : 0.55;
   }
 
   update(dt: number, rotate: boolean): void {
