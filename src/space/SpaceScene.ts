@@ -6,7 +6,7 @@ import { Sun } from "./Sun";
 import { Starfield } from "./Starfield";
 import { Saturn } from "./Saturn";
 import { Mars } from "./Mars";
-import { Comet } from "./Comet";
+import { Comet, COMET } from "./Comet";
 import type { StartScene } from "@/components/StartScene";
 import type { CountryId } from "@/storage/VisitedRepository";
 
@@ -34,7 +34,7 @@ const CONFIG = {
     radius: 0.16,
     position: [-5.5, 3, -10] as [number, number, number],
   },
-  comet: { minGap: 20, maxGap: 60 }, // seconds between comets
+  // Comet timing/look lives in COMET (src/space/Comet.ts).
 };
 
 const OPEN_DURATION = 1100; // ms, cinematic zoom into the Earth
@@ -114,7 +114,7 @@ export class SpaceScene implements StartScene {
     this.stars.setTwinkle(!this.reducedMotion);
     this.saturn = new Saturn(CONFIG.saturn);
     this.mars = new Mars(CONFIG.mars);
-    this.comet = new Comet();
+    this.comet = new Comet(pixelRatio);
 
     // Fill light so the night side is a very dark blue, never pure black.
     this.hemi = new THREE.HemisphereLight(0x3b5c80, 0x0a1018, 0.45);
@@ -145,7 +145,15 @@ export class SpaceScene implements StartScene {
     el.addEventListener("pointerleave", this.onPointerLeave);
     window.addEventListener("resize", this.resize);
     document.addEventListener("visibilitychange", this.onVisibility);
+    // Dev-only: press "C" to spawn a comet immediately.
+    if (import.meta.env.DEV) window.addEventListener("keydown", this.onDebugKey);
   }
+
+  private onDebugKey = (e: KeyboardEvent): void => {
+    if ((e.key === "c" || e.key === "C") && !this.comet.active) {
+      this.comet.spawn(this.sun.spritePos);
+    }
+  };
 
   setVisited(visited: Set<CountryId>): void {
     this.earth.setVisited(visited);
@@ -177,6 +185,7 @@ export class SpaceScene implements StartScene {
     el.removeEventListener("pointerleave", this.onPointerLeave);
     window.removeEventListener("resize", this.resize);
     document.removeEventListener("visibilitychange", this.onVisibility);
+    if (import.meta.env.DEV) window.removeEventListener("keydown", this.onDebugKey);
 
     this.earth.dispose();
     this.moon.dispose();
@@ -192,8 +201,9 @@ export class SpaceScene implements StartScene {
   // --- Render loop -------------------------------------------------------- */
 
   private randomCometGap(): number {
-    const { minGap, maxGap } = CONFIG.comet;
-    return this.clock.elapsedTime + minGap + Math.random() * (maxGap - minGap);
+    return (
+      this.clock.elapsedTime + COMET.minGap + Math.random() * (COMET.maxGap - COMET.minGap)
+    );
   }
 
   private loop = (): void => {
@@ -217,7 +227,7 @@ export class SpaceScene implements StartScene {
     // Occasional comet (one at a time, disabled for reduced motion).
     if (!this.reducedMotion) {
       if (this.comet.active) {
-        if (!this.comet.update(dt, this.camera)) this.nextComet = this.randomCometGap();
+        if (!this.comet.update(dt)) this.nextComet = this.randomCometGap();
       } else if (t >= this.nextComet) {
         this.comet.spawn(this.sun.spritePos);
       }

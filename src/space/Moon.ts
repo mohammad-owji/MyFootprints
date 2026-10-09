@@ -1,43 +1,78 @@
 import * as THREE from "three";
 
-/** Procedural gray, crater-pocked moon texture on an offscreen canvas. */
-function createMoonTexture(size = 512): THREE.CanvasTexture {
+type V3 = [number, number, number];
+
+/** A uniformly distributed random unit vector (point on the sphere). */
+function randUnit(): V3 {
+  const u = Math.random() * 2 - 1;
+  const th = Math.random() * Math.PI * 2;
+  const s = Math.sqrt(1 - u * u);
+  return [s * Math.cos(th), u, s * Math.sin(th)];
+}
+
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
+/**
+ * Gray, crater-pocked moon texture. Craters and maria are placed as directions
+ * on the sphere and evaluated per pixel from each texel's 3D direction, so they
+ * stay round everywhere and do NOT smear at the poles (no equirectangular UV
+ * stretching).
+ */
+function createMoonTexture(): THREE.CanvasTexture {
+  const W = 768;
+  const H = 384;
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size / 2;
+  canvas.width = W;
+  canvas.height = H;
   const ctx = canvas.getContext("2d")!;
-  const { width, height } = canvas;
+  const img = ctx.createImageData(W, H);
+  const data = img.data;
 
-  ctx.fillStyle = "#9a9a9e";
-  ctx.fillRect(0, 0, width, height);
+  const base = 158;
+  const maria = Array.from({ length: 12 }, () => ({
+    c: randUnit(),
+    cr: Math.cos(0.5 + Math.random() * 0.6), // cos(angular radius)
+    d: 16 + Math.random() * 20,
+  }));
+  const craters = Array.from({ length: 170 }, () => ({
+    c: randUnit(),
+    cr: Math.cos(0.02 + Math.random() * 0.07),
+    depth: 18 + Math.random() * 34,
+  }));
 
-  // Subtle large-scale maria (darker plains).
-  for (let i = 0; i < 14; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const r = 30 + Math.random() * 90;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, "rgba(120, 120, 128, 0.35)");
-    g.addColorStop(1, "rgba(120, 120, 128, 0)");
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+  let idx = 0;
+  for (let y = 0; y < H; y++) {
+    const lat = Math.PI / 2 - ((y + 0.5) / H) * Math.PI;
+    const cl = Math.cos(lat);
+    const sl = Math.sin(lat);
+    for (let x = 0; x < W; x++) {
+      const lon = ((x + 0.5) / W) * Math.PI * 2 - Math.PI;
+      const dx = cl * Math.cos(lon);
+      const dy = sl;
+      const dz = cl * Math.sin(lon);
+      let v = base;
+
+      for (const m of maria) {
+        const dot = dx * m.c[0] + dy * m.c[1] + dz * m.c[2];
+        if (dot > m.cr) v -= m.d * smooth((dot - m.cr) / (1 - m.cr));
+      }
+      for (const k of craters) {
+        const dot = dx * k.c[0] + dy * k.c[1] + dz * k.c[2];
+        if (dot > k.cr) {
+          const t = (dot - k.cr) / (1 - k.cr); // 0 at rim, 1 at centre
+          v -= k.depth * t; // dark bowl, deepest at the centre
+          v += 22 * Math.max(0, 1 - Math.abs(t - 0.82) / 0.16); // bright rim
+        }
+      }
+
+      v = Math.max(22, Math.min(236, v));
+      data[idx++] = v;
+      data[idx++] = v;
+      data[idx++] = Math.min(255, v + 3); // faint cool tint
+      data[idx++] = 255;
+    }
   }
-
-  // Craters: a dark bowl with a faint bright rim.
-  for (let i = 0; i < 220; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const r = 1.5 + Math.random() * 10;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(70, 70, 76, ${0.25 + Math.random() * 0.3})`;
-    ctx.fill();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(200, 200, 205, 0.18)";
-    ctx.stroke();
-  }
+  ctx.putImageData(img, 0, 0);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
