@@ -1,44 +1,57 @@
-# MyFootprints
+# 🌍 MyFootprints
 
-A minimal, modern web app for marking the countries you have visited on an
-interactive world map. Start on a slowly rotating 3D-style globe, click through
-to a flat world map, and tap countries to toggle them as visited. Your
-selections are saved locally in the browser.
+A minimal, modern web app for marking the countries you've visited — on a
+cinematic **3D Earth floating in space** and an interactive **world map**.
 
-![dark theme · globe → map](https://img.shields.io/badge/theme-dark-0b0f14)
+### ▶️ Live demo: **[myfootprints-world.web.app](https://myfootprints-world.web.app)**
 
-## Features
+![theme](https://img.shields.io/badge/theme-dark-0b0f14)
+![stack](https://img.shields.io/badge/Vite-TypeScript-646cff)
+![3d](https://img.shields.io/badge/Three.js-WebGL-000000)
+![backend](https://img.shields.io/badge/Firebase-Hosting%20%2B%20Firestore-ffca28)
 
-- **Space start screen** — a small Earth floating in deep space (Three.js /
-  WebGL) with a starfield + nebula, an orbiting crater Moon and a distant Sun
-  that lights the day/night terminator. Drag to rotate (with inertia), hover for
-  a glow boost, click to zoom cinematically into the world map. Visited
-  countries appear in green on the Earth. Falls back to a canvas globe when
-  WebGL is unavailable.
-- **World map** — flat Natural Earth projection (SVG) with hover highlighting,
-  floating country labels, click-to-toggle, zoom & pan (wheel / drag / pinch).
-- **Visited styling** — calm emerald fill with centroid name labels that scale
-  with country size (tiny countries show their name on hover only).
-- **Persistence** — visited countries are stored in `localStorage` behind a
-  small repository abstraction. Optionally sign in with Google to sync across
-  devices via **Firebase Firestore** (same abstraction, drop-in backend).
-- **Responsive & accessible** — works on desktop, tablet and mobile; keyboard
-  focusable controls, aria-labels, reduced-motion support (twinkle, orbit and
-  drift animations pause), and the render loop pauses when the tab is hidden.
+The app opens on a small Earth in deep space — a distant Sun lighting its
+day/night side, an orbiting Moon, Saturn and Mars drifting in the background,
+thousands of stars and the occasional comet. Click the Earth to zoom into a
+flat world map, pick a country, and mark it visited. Your choices are saved in
+the browser, or synced across all your devices when you sign in with Google.
 
-## Tech stack
+## ✨ Features
 
-- [Vite](https://vitejs.dev/) + TypeScript (vanilla, no UI framework)
-- [Three.js](https://threejs.org/) for the WebGL space start screen
-- [d3-geo](https://github.com/d3/d3-geo) for projections & path rendering
-  (the flat map and the procedural Earth texture)
-- [d3-zoom](https://github.com/d3/d3-zoom) for map zoom/pan
+- **Space start screen** (Three.js / WebGL)
+  - A procedurally textured **Earth**, lit by the Sun with a soft day/night
+    terminator; **visited countries glow green** even on the shadow side.
+  - An orbiting **Moon** with its phase, a distant glowing **Sun**, **Saturn**
+    with tilted rings and **Mars** in the background, a **starfield + nebula**,
+    and a **comet** that streaks past every so often.
+  - Drag to rotate the Earth (with inertia), subtle parallax on mouse move, and
+    a cinematic camera **zoom into the map** on click. Only the Earth is
+    clickable. Falls back to a canvas globe when WebGL is unavailable.
+- **World map** — flat Natural Earth projection (SVG) with zoom & pan
+  (wheel / drag / pinch). Hovering a country animates its **name** in at the
+  country's centre.
+- **Confirmation dialog** — clicking a country opens a small *"Have you visited
+  this country?"* dialog with **Visited** / **Not yet**, so marking is
+  deliberate. Focus-trapped, keyboard- and touch-friendly.
+- **Persistence & cloud sync** — saved to `localStorage` by default, or to
+  **Firebase Firestore** (per user) after a Google sign-in, so your map follows
+  you across devices.
+- **Responsive & accessible** — desktop, tablet and mobile; keyboard-focusable
+  controls, aria labels, `prefers-reduced-motion` support, and the render loop
+  pauses when the tab is hidden.
+
+## 🛠️ Tech stack
+
+- [Vite](https://vitejs.dev/) + TypeScript (vanilla — no UI framework)
+- [Three.js](https://threejs.org/) for the WebGL space scene
+- [d3-geo](https://github.com/d3/d3-geo) + [d3-zoom](https://github.com/d3/d3-zoom)
+  for the flat map and the procedural Earth texture
 - [topojson-client](https://github.com/topojson/topojson-client) +
-  [world-atlas](https://github.com/topojson/world-atlas) (`countries-110m`)
-- [Firebase](https://firebase.google.com/) (optional) for auth + cloud sync
+  [world-atlas](https://github.com/topojson/world-atlas) (`countries-110m`) for the geometry
+- [Firebase](https://firebase.google.com/) — Hosting, Auth (Google) & Firestore
 - Plain CSS
 
-## Getting started
+## 🚀 Getting started
 
 Requires Node 18+ (developed on Node 24).
 
@@ -47,25 +60,23 @@ npm install
 npm run dev
 ```
 
-Then open the printed local URL (default http://localhost:5173).
-
-### Other scripts
+Then open the printed local URL (default http://localhost:5173). Without any
+configuration the app runs fully on `localStorage` — cloud sync is optional.
 
 ```bash
-npm run build     # type-check and build to dist/
+npm run build     # type-check + build to dist/
 npm run preview   # preview the production build
 ```
 
-## Cloud sync (Firebase) — optional
+## ☁️ Cloud sync (Firebase) — optional
 
-Without any configuration the app runs entirely on `localStorage` (per-browser).
-To sync your visited countries across devices, enable Firebase:
+To sync visited countries across devices:
 
 1. Create a free project at the [Firebase console](https://console.firebase.google.com/).
-2. **Authentication** → *Get started* → enable the **Google** sign-in provider.
-3. **Firestore Database** → *Create database* (production mode is fine).
-4. Add a **Web app** (`</>`) to the project and copy its config values.
-5. Copy `.env.example` to `.env.local` and paste the values:
+2. **Authentication → Sign-in method** → enable **Google**.
+3. **Firestore Database → Create database** (production mode).
+4. Add a **Web app** (`</>`) and copy its config.
+5. Copy `.env.example` to `.env.local` and fill in the values:
 
    ```bash
    VITE_FIREBASE_API_KEY=...
@@ -75,120 +86,101 @@ To sync your visited countries across devices, enable Firebase:
    # STORAGE_BUCKET and MESSAGING_SENDER_ID are optional
    ```
 
-6. Set Firestore **security rules** so each user only touches their own data:
+6. The Firestore rules in [`firestore.rules`](firestore.rules) already restrict
+   each user to their own `users/{uid}` document.
 
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /users/{uid} {
-         allow read, write: if request.auth != null && request.auth.uid == uid;
-       }
-     }
-   }
-   ```
+Restart `npm run dev` — a **Sign in** control appears top-right. On first
+sign-in your local countries are copied to the cloud; after that Firestore is
+the source of truth. The Firebase SDK is code-split and only loaded when cloud
+sync is configured.
 
-7. Restart `npm run dev`. A **Sign in** control appears top-right. On first
-   sign-in your existing local countries are copied up to the cloud; after that
-   Firestore (document `users/{uid}`) is the source of truth and your countries
-   follow you to any device.
+> The Firebase web keys are **not secrets** (they ship in every web build);
+> access is secured by Auth + Firestore rules. `.env.local` is git-ignored only
+> so each deployment uses its own project.
 
-The Firebase web keys are **not secrets** (they ship in every web build); access
-is secured by the auth + rules above, so `.env.local` is git-ignored only so
-each deployment uses its own project.
+## 📦 Deploy (Firebase Hosting)
 
-## Deploy (Firebase Hosting)
-
-The app is a static build, hosted for free on Firebase Hosting (Spark plan).
-
-**One-time setup**
-
-1. Install the Firebase CLI: `npm install -g firebase-tools`
-2. Log in: `firebase login` (opens a browser for Google sign-in).
-3. Make sure `.firebaserc` points at your project (its `projects.default` is
-   your Firebase project ID), and `.env.local` holds that project's web config
-   (see *Cloud sync* above) so the production build enables sign-in.
-
-**Deploy**
+A static build, hosted for free on Firebase Hosting (Spark plan).
 
 ```bash
-npm run deploy            # build, then deploy hosting + Firestore rules
-npm run deploy:hosting    # build + deploy only the site
-npm run deploy:rules      # deploy only firestore.rules
+npm install -g firebase-tools   # once
+firebase login                  # once
+npm run deploy                  # build + deploy hosting & Firestore rules
 ```
 
-The live URL is `https://<project-id>.web.app` (also `…firebaseapp.com`).
+Other scripts: `npm run deploy:hosting` (site only), `npm run deploy:rules`
+(rules only). Hosting config (SPA rewrite + cache headers) lives in
+[`firebase.json`](firebase.json); the target project is in `.firebaserc`.
 
-**After the first deploy** — in the [Firebase console](https://console.firebase.google.com/):
+After the first deploy, in the Firebase console check **Authentication →
+Settings → Authorized domains** includes `<project-id>.web.app` (needed for
+Google sign-in).
 
-- **Authentication → Settings → Authorized domains**: make sure both
-  `<project-id>.web.app` and `<project-id>.firebaseapp.com` are listed, or
-  Google sign-in fails with `auth/unauthorized-domain`.
-- **Firestore → Rules**: confirm the deployed rules match `firestore.rules`
-  (each user can touch only `users/{uid}`).
+## 🧭 How it works
 
-**Redeploy after changes**: just run `npm run deploy` again. Config lives in
-`firebase.json` (SPA rewrite + cache headers: 1-year immutable for
-`/assets/**`, no-cache for `index.html`).
+1. **Space (start screen).** Opens on the Three.js scene. Drag to rotate the
+   Earth; click it to zoom into the map.
+2. **Map.** Hover a country to see its name; click it to open the dialog and
+   choose **Visited** / **Not yet**. A counter shows your progress; the back
+   button returns to space.
+3. **Persistence.** Each choice saves immediately (localStorage, or Firestore
+   when signed in) and is shown green on both the Earth and the flat map.
 
-## How it works
-
-1. **Space (start screen).** The app opens on the Three.js scene — Earth, Moon,
-   Sun and stars. Drag to rotate the Earth; click it to zoom into the map (or a
-   canvas-globe fallback when WebGL is unavailable).
-2. **Map.** All countries are interactive. Hover (or focus) a country to see its
-   name; click/tap to toggle it visited. A counter shows your progress. Use the
-   back button to return to the space scene.
-3. **Persistence.** Toggling a country saves immediately (localStorage, or
-   Firestore when signed in). Reloading restores your visited set, shown green
-   on both the Earth and the flat map.
-
-## Project structure
+## 🗂️ Project structure
 
 ```
-MyFootprints/
-├── index.html                # entry HTML, fonts, favicon
-├── vite.config.ts            # Vite config + "@/" → src alias
-├── tsconfig.json
-├── public/                   # static assets (currently empty)
-└── src/
-    ├── main.ts               # bootstraps the App
-    ├── app.ts                # screen controller, counter, transitions
-    ├── components/
-    │   ├── StartScene.ts     # interface shared by SpaceScene + Globe
-    │   ├── Globe.ts          # canvas globe (WebGL fallback)
-    │   ├── WorldMap.ts       # SVG flat map + zoom/pan (screen 2)
-    │   └── AuthControl.ts    # minimal sign-in / sign-out control
-    ├── space/                # Three.js start screen
-    │   ├── SpaceScene.ts     # orchestrator: camera, loop, interaction
-    │   ├── Earth.ts          # textured sphere + fresnel atmosphere
-    │   ├── Moon.ts           # orbiting procedural crater moon
-    │   ├── Sun.ts            # directional light + corona sprite
-    │   ├── Starfield.ts      # THREE.Points stars + nebula backdrop
-    │   └── earthTexture.ts   # procedural equirectangular Earth texture
-    ├── storage/
-    │   ├── VisitedRepository.ts              # persistence interface
-    │   ├── LocalStorageVisitedRepository.ts  # localStorage implementation
-    │   ├── FirestoreVisitedRepository.ts     # Firebase implementation
-    │   ├── firebaseConfig.ts                 # env config (SDK-free)
-    │   ├── firebase.ts                       # Firebase init + Google auth
-    │   └── cloud.ts                          # lazy-loaded cloud-sync facade
-    ├── utils/
-    │   ├── countries.ts      # TopoJSON → features, id→name mapping
-    │   ├── countryNames.ts   # fallback names for ids missing one
-    │   └── theme.ts          # shared color tokens (canvas ↔ CSS)
-    └── styles/
-        ├── global.css        # theme variables, screen transitions
-        ├── globe.css         # start-screen overlay (brand, hint, counter)
-        ├── space.css         # Three.js canvas styles
-        ├── map.css           # map screen styles
-        └── auth.css          # sign-in control styles
+src/
+├── main.ts                # bootstraps the App
+├── app.ts                 # screen controller, dialog wiring, counter, auth
+├── components/
+│   ├── StartScene.ts      # interface shared by SpaceScene + Globe
+│   ├── Globe.ts           # canvas globe (WebGL fallback)
+│   ├── WorldMap.ts        # SVG flat map + zoom/pan + hover labels
+│   ├── CountryDialog.ts   # Visited / Not yet confirmation dialog
+│   └── AuthControl.ts     # minimal sign-in / sign-out control
+├── space/                 # Three.js start screen
+│   ├── SpaceScene.ts      # orchestrator: camera, loop, interaction, CONFIG
+│   ├── Earth.ts           # textured sphere, emissive visited map, atmosphere
+│   ├── Moon.ts            # orbiting procedural crater moon
+│   ├── Sun.ts             # directional light + corona sprite
+│   ├── Saturn.ts          # banded planet + procedural rings
+│   ├── Mars.ts            # reddish procedural planet
+│   ├── Comet.ts           # pooled comet (head + anti-sun tail)
+│   ├── Starfield.ts       # THREE.Points stars + nebula backdrop
+│   ├── atmosphere.ts      # shared fresnel atmosphere helper
+│   └── earthTexture.ts    # procedural equirectangular Earth textures
+├── storage/
+│   ├── VisitedRepository.ts              # persistence interface
+│   ├── LocalStorageVisitedRepository.ts  # localStorage implementation
+│   ├── FirestoreVisitedRepository.ts     # Firebase implementation
+│   ├── firebaseConfig.ts / firebase.ts   # env config + init + Google auth
+│   └── cloud.ts                          # lazy-loaded cloud-sync facade
+├── utils/                 # countries (TopoJSON), name fallbacks, theme tokens
+└── styles/                # global, globe, space, map, auth, dialog CSS
 ```
 
-## Swapping the storage backend
+## 🎛️ Tuning the space scene
 
-All persistence goes through the `VisitedRepository` interface
-([src/storage/VisitedRepository.ts](src/storage/VisitedRepository.ts)):
+Everything is in the `CONFIG` object at the top of
+[`src/space/SpaceScene.ts`](src/space/SpaceScene.ts):
+
+| What | Key | Default |
+| --- | --- | --- |
+| Earth size on screen | `earthHeightFraction` | `0.34` |
+| Earth auto-rotation | `autoRotate` | `0.045` rad/s |
+| Star count | `starCount` | `6000` |
+| Sun light / sprite position | `sunLightPos` / `sunSpritePos` | — |
+| Saturn size / rings / position | `saturn` | `radius 0.3`, `[5, -2.6, -12]` |
+| Mars size / position | `mars` | `radius 0.16`, `[-5.5, 3, -10]` |
+| Comet frequency (seconds) | `comet.minGap` / `maxGap` | `20` / `60` |
+
+More: atmosphere strength in `Earth.ts` (`ATMO_BASE` / `ATMO_HOVER`); ocean/land
+colours in `earthTexture.ts`. Visited green is `#34d399`.
+
+## 🔌 Swapping the storage backend
+
+All persistence goes through one interface
+([`VisitedRepository`](src/storage/VisitedRepository.ts)):
 
 ```ts
 interface VisitedRepository {
@@ -198,40 +190,14 @@ interface VisitedRepository {
 }
 ```
 
-The methods are already async, so a new backend is just a new class implementing
-this interface. Two implementations ship today:
+Two implementations ship: `LocalStorageVisitedRepository` (default) and
+`FirestoreVisitedRepository` (cloud). [`app.ts`](src/app.ts) starts on
+localStorage and switches to Firestore on sign-in, seeding the cloud from local
+data the first time. A new backend is just a new class implementing the interface.
 
-- [`LocalStorageVisitedRepository`](src/storage/LocalStorageVisitedRepository.ts)
-  — the default, per-browser.
-- [`FirestoreVisitedRepository`](src/storage/FirestoreVisitedRepository.ts)
-  — cloud sync per signed-in user.
+## 📝 Notes on the data
 
-[src/app.ts](src/app.ts) starts on localStorage and automatically switches to
-Firestore when a user signs in (see *Cloud sync* above), seeding the cloud from
-local data on first sign-in.
-
-## Tuning the space scene
-
-Quick knobs, all in [src/space/](src/space/):
-
-| What | Where | Default |
-| --- | --- | --- |
-| Star count | `SpaceScene.ts` → `new Starfield(6000, …)` | `6000` |
-| Earth auto-rotation speed | `SpaceScene.ts` → `AUTO_ROTATE` | `0.045` rad/s |
-| Earth size on screen | `SpaceScene.ts` → `EARTH_HEIGHT_FRACTION` | `0.34` |
-| Camera field of view | `SpaceScene.ts` → `FOV` | `38` |
-| Moon size / distance / speed | `Moon.ts` → `0.27` · `3.4` · `0.12` | — |
-| Sun position & light | `Sun.ts` → `position`, `DirectionalLight` | — |
-| Earth / ocean / land colours | `earthTexture.ts` constants | — |
-| Atmosphere colour & strength | `Earth.ts` → `uColor`, `setHover` | — |
-
-Visited green is `#34d399` (shared with the map via `earthTexture.ts` and the
-CSS `--visited` token).
-
-## Notes on the data
-
-- Country ids are ISO 3166-1 numeric codes (as strings), matching the
-  world-atlas TopoJSON.
-- Antarctica is excluded from the interactive map and the counter.
-- The counter denominator is the number of countries in the dataset
-  (`countries-110m`), which is close to but not exactly 195.
+- Country ids are ISO 3166-1 numeric codes (as strings), from the world-atlas TopoJSON.
+- Antarctica is excluded from the map and the counter.
+- The counter denominator is the dataset's country count (`countries-110m`),
+  close to but not exactly 195.
