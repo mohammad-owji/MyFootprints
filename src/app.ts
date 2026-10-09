@@ -1,6 +1,12 @@
 import { Globe } from "@/components/Globe";
+import { SpaceScene } from "@/space/SpaceScene";
+import type { StartScene } from "@/components/StartScene";
 import { WorldMap } from "@/components/WorldMap";
+import { AuthControl } from "@/components/AuthControl";
 import { LocalStorageVisitedRepository } from "@/storage/LocalStorageVisitedRepository";
+import { isFirebaseConfigured } from "@/storage/firebaseConfig";
+import type { CloudSync } from "@/storage/cloud";
+import type { User } from "@/storage/firebase";
 import type { CountryId, VisitedRepository } from "@/storage/VisitedRepository";
 import { totalCountryCount } from "@/utils/countries";
 
@@ -12,15 +18,19 @@ type Screen = "globe" | "map";
  * the backend can later be swapped without touching this file.
  */
 export class App {
-  private readonly repo: VisitedRepository = new LocalStorageVisitedRepository();
+  // localStorage is always available as the offline fallback; `repo` points at
+  // it until the user signs in, then switches to the Firestore-backed store.
+  private readonly local = new LocalStorageVisitedRepository();
+  private repo: VisitedRepository = this.local;
   private visited: Set<CountryId> = new Set();
 
-  private globe!: Globe;
+  private startScene!: StartScene;
   private map!: WorldMap;
+  private authControl: AuthControl | null = null;
+  private cloud: CloudSync | null = null;
 
   private globeScreen!: HTMLElement;
   private mapScreen!: HTMLElement;
-  private counterEl!: HTMLElement;
   private current: Screen = "globe";
 
   constructor(private readonly root: HTMLElement) {}
@@ -29,15 +39,52 @@ export class App {
     this.visited = await this.repo.getVisited();
     this.render();
 
-    this.globe = new Globe(() => this.goTo("map"));
-    this.globe.setVisited(this.visited);
-    document.getElementById("globe-stage")!.appendChild(this.globe.canvas);
-    this.globe.start();
+    this.startScene = createStartScene(() => this.goTo("map"));
+    this.startScene.setVisited(this.visited);
+    this.startScene.mount(document.getElementById("globe-stage")!);
 
     this.map = new WorldMap({ onToggle: (id) => this.handleToggle(id) });
     this.map.setVisited(this.visited);
     this.map.mount(document.getElementById("map-stage")!);
 
+    this.updateCounter();
+    this.setupAuth().catch((err) =>
+      console.error("Failed to initialise cloud sync:", err),
+    );
+  }
+
+  /**
+   * Wire up Firebase auth, but only when configured — and lazily, so the large
+   * Firebase SDK is code-split out of the default (localStorage) bundle. On
+   * sign-in the repository switches to Firestore (seeding the cloud doc from
+   * local data the first time) and the UI reloads from the active store.
+   */
+  private async setupAuth(): Promise<void> {
+    if (!isFirebaseConfigured()) return;
+
+    const { startCloudSync } = await import("@/storage/cloud");
+
+    this.authControl = new AuthControl({
+      onSignIn: () => this.cloud?.signIn() ?? Promise.resolve(),
+      onSignOut: () => this.cloud?.signOut() ?? Promise.resolve(),
+    });
+    this.root.appendChild(this.authControl.el);
+
+    this.cloud = startCloudSync({
+      getLocalSeed: () => this.local.getVisited(),
+      onChange: async (repo: VisitedRepository | null, user: User | null) => {
+        this.repo = repo ?? this.local;
+        this.applyVisited(await this.repo.getVisited());
+        this.authControl?.setUser(user);
+      },
+    });
+  }
+
+  /** Push a freshly loaded visited set into both screens and the counter. */
+  private applyVisited(visited: Set<CountryId>): void {
+    this.visited = visited;
+    this.startScene.setVisited(this.visited);
+    this.map.setVisited(this.visited);
     this.updateCounter();
   }
 
@@ -48,7 +95,8 @@ export class App {
           <div id="globe-stage" class="globe-stage"></div>
           <div class="globe-intro">
             <h1 class="brand">MyFootprints</h1>
-            <p class="hint"><span>Click the globe to explore</span></p>
+            <p class="hint"><span>Click the Earth to explore</span></p>
+            <div class="counter counter--start" aria-live="polite"></div>
           </div>
         </section>
 
@@ -70,7 +118,6 @@ export class App {
 
     this.globeScreen = document.getElementById("globe-screen")!;
     this.mapScreen = document.getElementById("map-screen")!;
-    this.counterEl = document.getElementById("counter")!;
     document.getElementById("back-btn")!.addEventListener("click", () => this.goTo("globe"));
   }
 
@@ -78,7 +125,7 @@ export class App {
     const nowVisited = await this.repo.toggleVisited(id);
     if (nowVisited) this.visited.add(id);
     else this.visited.delete(id);
-    this.globe.setVisited(this.visited);
+    this.startScene.setVisited(this.visited);
     this.updateCounter();
     return nowVisited;
   }
@@ -87,9 +134,13 @@ export class App {
     const total = totalCountryCount();
     const count = this.visited.size;
     const pct = total ? Math.round((count / total) * 100) : 0;
-    this.counterEl.innerHTML = `
+    const html = `
       <span class="counter-main">${count} / ${total}</span>
       <span class="counter-sub">countries · ${pct}%</span>`;
+    // Both the map header and the start screen show the counter.
+    this.root
+      .querySelectorAll<HTMLElement>(".counter")
+      .forEach((el) => (el.innerHTML = html));
   }
 
   private goTo(screen: Screen): void {
@@ -104,11 +155,36 @@ export class App {
     this.mapScreen.setAttribute("aria-hidden", String(!toMap));
 
     if (toMap) {
-      this.globe.stop();
+      this.startScene.stop();
       this.map.resetZoom();
     } else {
-      // Re-enter the globe fresh so it rotates again.
-      this.globe.start();
+      // Re-enter the start screen (resumes rotation / zooms back out).
+      this.startScene.start();
     }
   }
+}
+
+/** True when the browser can create a WebGL context. */
+function webglAvailable(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    return Boolean(
+      window.WebGLRenderingContext &&
+        (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** The Three.js space scene when WebGL is available, else the canvas globe. */
+function createStartScene(onOpen: () => void): StartScene {
+  if (webglAvailable()) {
+    try {
+      return new SpaceScene(onOpen);
+    } catch (err) {
+      console.error("WebGL start scene failed, falling back to globe:", err);
+    }
+  }
+  return new Globe(onOpen);
 }

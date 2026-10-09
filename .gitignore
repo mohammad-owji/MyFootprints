@@ -27,3 +27,4 @@ Thumbs.db
 # vite / ts cache
 .vite/
 *.tsbuildinfo
+vite.config.ts.timestamp-*.mjs

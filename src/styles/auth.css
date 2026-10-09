@@ -1,0 +1,90 @@
+/* Minimal sign-in control, pinned to the top-right corner over both screens. */
+.auth-control {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 5px 5px 10px;
+  border-radius: 999px;
+  background: rgba(20, 26, 34, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  color: #e5e7eb;
+  font-size: 13px;
+  line-height: 1;
+  max-width: min(60vw, 260px);
+}
+
+.auth-btn,
+.auth-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border-radius: 999px;
+  padding: 6px 10px;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+.auth-btn {
+  color: #cbd5e1;
+}
+
+.auth-btn:hover,
+.auth-signout:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.auth-btn:focus-visible,
+.auth-signout:focus-visible {
+  outline: 2px solid #34d399;
+  outline-offset: 2px;
+}
+
+.auth-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.auth-avatar--letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #1f9d6b;
+  color: #06231a;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.auth-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e5e7eb;
+}
+
+.auth-signout {
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+@media (max-width: 520px) {
+  .auth-name {
+    display: none;
+  }
+}

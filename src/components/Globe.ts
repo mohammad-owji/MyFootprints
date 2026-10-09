@@ -2,6 +2,7 @@ import { geoOrthographic, geoPath, geoGraticule10 } from "d3-geo";
 import type { GeoProjection, GeoPermissibleObjects } from "d3-geo";
 
 import { getCountries, type CountryFeature } from "@/utils/countries";
+import type { StartScene } from "@/components/StartScene";
 import { COLORS } from "@/utils/theme";
 import type { CountryId } from "@/storage/VisitedRepository";
 
@@ -17,7 +18,7 @@ interface GlobeOptions {
  * be dragged to spin. Visited countries are filled green. A click that is not a
  * drag triggers {@link GlobeOptions.onOpen}.
  */
-export class Globe {
+export class Globe implements StartScene {
   readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly projection: GeoProjection;
@@ -59,6 +60,18 @@ export class Globe {
 
   setVisited(visited: Set<CountryId>): void {
     this.visited = visited;
+  }
+
+  /** Attach the canvas to a parent and start (StartScene interface). */
+  mount(parent: HTMLElement): void {
+    parent.appendChild(this.canvas);
+    this.start();
+  }
+
+  /** Stop and detach (StartScene interface). */
+  dispose(): void {
+    this.destroy();
+    this.canvas.remove();
   }
 
   /** Size the canvas to its parent and start the render loop. */
