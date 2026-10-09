@@ -48,6 +48,25 @@
   animation: hint-pulse 2.6s var(--ease) infinite;
 }
 
+/* Small, unobtrusive click cue near the bottom of the space scene. */
+.start-hint {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(28px, 7vh, 64px);
+  transform: translateX(-50%);
+  margin: 0;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.start-hint span {
+  display: inline-block;
+  animation: hint-pulse 2.6s var(--ease) infinite;
+}
+
 /* Visited counter on the start screen, centred under the hint. */
 .globe-intro .counter--start {
   align-items: center;

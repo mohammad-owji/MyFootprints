@@ -93,6 +93,7 @@ export class App {
       <main class="app">
         <section id="globe-screen" class="screen screen--globe is-active" aria-label="Start screen">
           <div id="globe-stage" class="globe-stage"></div>
+          <p class="start-hint"><span>Click to explore</span></p>
         </section>
 
         <section id="map-screen" class="screen screen--map" aria-label="World map" aria-hidden="true">
