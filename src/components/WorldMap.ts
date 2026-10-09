@@ -9,15 +9,15 @@ import type { CountryId } from "@/storage/VisitedRepository";
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 interface WorldMapOptions {
-  /** Toggle a country; resolves with its new visited state. */
-  onToggle: (id: CountryId) => Promise<boolean>;
+  /** A real click (not a drag) on a country — opens the confirmation dialog. */
+  onSelect: (country: CountryFeature) => void;
 }
 
 /**
  * Interactive flat world map (SVG + d3-zoom).
  *
  * - hover: highlight + the country's name animates in at its centroid
- * - click/tap: toggle visited
+ * - click/tap: open the confirmation dialog (drags are ignored)
  * - visited countries: green fill
  * - wheel / drag / pinch zoom + pan with sensible limits
  */
@@ -36,6 +36,7 @@ export class WorldMap {
   private currentScale = 1;
   private visited: Set<CountryId> = new Set();
   private hoveredId: CountryId | null = null;
+  private pointerMoved = false; // true once a pan/drag happens, to suppress clicks
 
   constructor(private readonly opts: WorldMapOptions) {
     this.el = document.createElement("div");
@@ -58,6 +59,10 @@ export class WorldMap {
       .scaleExtent([1, 8])
       .on("zoom", this.handleZoom);
     this.svg.call(this.zoomBehavior);
+    // Reset the drag guard at the start of every gesture.
+    this.svg.on("pointerdown.track", () => {
+      this.pointerMoved = false;
+    });
 
     this.buildPaths();
 
@@ -96,11 +101,14 @@ export class WorldMap {
 
       p.addEventListener("pointerenter", () => this.onHover(country));
       p.addEventListener("pointerleave", () => this.onHoverEnd(country));
-      p.addEventListener("click", () => this.toggle(country));
+      p.addEventListener("click", () => {
+        if (this.pointerMoved) return; // ignore the click that ends a pan
+        this.opts.onSelect(country);
+      });
       p.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          this.toggle(country);
+          this.opts.onSelect(country);
         }
       });
 
@@ -134,6 +142,10 @@ export class WorldMap {
     const { transform } = event;
     this.currentScale = transform.k;
     this.zoomLayer.attr("transform", transform.toString());
+    // A pointer-driven pan counts as a drag, so the ensuing click is ignored.
+    if (event.sourceEvent && /move/.test(event.sourceEvent.type)) {
+      this.pointerMoved = true;
+    }
     // Keep the label visually constant while zooming.
     this.applyLabelScale();
   };
@@ -154,11 +166,13 @@ export class WorldMap {
     }
   }
 
-  private async toggle(country: CountryFeature): Promise<void> {
-    const nowVisited = await this.opts.onToggle(country.id);
-    if (nowVisited) this.visited.add(country.id);
-    else this.visited.delete(country.id);
-    this.refreshStyles();
+  /** Clear any hover highlight/label (used when a dialog opens over the map). */
+  clearHover(): void {
+    if (this.hoveredId) {
+      this.pathEls.get(this.hoveredId)?.classList.remove("is-hover");
+      this.hoveredId = null;
+    }
+    this.hoverLabel.classList.remove("is-visible");
   }
 
   /** Reapply visited classes. */

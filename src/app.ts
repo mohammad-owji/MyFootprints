@@ -3,12 +3,13 @@ import { SpaceScene } from "@/space/SpaceScene";
 import type { StartScene } from "@/components/StartScene";
 import { WorldMap } from "@/components/WorldMap";
 import { AuthControl } from "@/components/AuthControl";
+import { CountryDialog } from "@/components/CountryDialog";
 import { LocalStorageVisitedRepository } from "@/storage/LocalStorageVisitedRepository";
 import { isFirebaseConfigured } from "@/storage/firebaseConfig";
 import type { CloudSync } from "@/storage/cloud";
 import type { User } from "@/storage/firebase";
 import type { CountryId, VisitedRepository } from "@/storage/VisitedRepository";
-import { totalCountryCount } from "@/utils/countries";
+import { countryName, totalCountryCount, type CountryFeature } from "@/utils/countries";
 
 type Screen = "globe" | "map";
 
@@ -26,8 +27,11 @@ export class App {
 
   private startScene!: StartScene;
   private map!: WorldMap;
+  private dialog!: CountryDialog;
   private authControl: AuthControl | null = null;
   private cloud: CloudSync | null = null;
+  private toastEl: HTMLElement | null = null;
+  private toastTimer = 0;
 
   private globeScreen!: HTMLElement;
   private mapScreen!: HTMLElement;
@@ -43,9 +47,11 @@ export class App {
     this.startScene.setVisited(this.visited);
     this.startScene.mount(document.getElementById("globe-stage")!);
 
-    this.map = new WorldMap({ onToggle: (id) => this.handleToggle(id) });
+    this.map = new WorldMap({ onSelect: (c) => this.openCountryDialog(c) });
     this.map.setVisited(this.visited);
     this.map.mount(document.getElementById("map-stage")!);
+
+    this.dialog = new CountryDialog(this.root);
 
     this.updateCounter();
     this.setupAuth().catch((err) =>
@@ -117,13 +123,52 @@ export class App {
     document.getElementById("back-btn")!.addEventListener("click", () => this.goTo("globe"));
   }
 
-  private async handleToggle(id: CountryId): Promise<boolean> {
-    const nowVisited = await this.repo.toggleVisited(id);
-    if (nowVisited) this.visited.add(id);
+  /** A country was clicked: confirm the visited state via the dialog. */
+  private openCountryDialog(country: CountryFeature): void {
+    const name = countryName(country);
+    this.map.clearHover();
+    this.dialog.show({
+      name,
+      visited: this.visited.has(country.id),
+      onChoose: (visited) => this.setCountryVisited(country.id, visited, name),
+    });
+  }
+
+  /** Apply an explicit visited choice: persist and update every view. */
+  private async setCountryVisited(
+    id: CountryId,
+    visited: boolean,
+    name: string,
+  ): Promise<void> {
+    if (visited === this.visited.has(id)) return; // no change
+
+    if (visited) this.visited.add(id);
     else this.visited.delete(id);
+
     this.startScene.setVisited(this.visited);
+    this.map.setVisited(this.visited);
     this.updateCounter();
-    return nowVisited;
+    this.showToast(`${name} ${visited ? "marked as visited" : "set to not visited"}`);
+
+    await this.repo.setVisited([...this.visited]);
+  }
+
+  /** Brief bottom-centre confirmation toast. */
+  private showToast(message: string): void {
+    if (!this.toastEl) {
+      this.toastEl = document.createElement("div");
+      this.toastEl.className = "toast";
+      this.toastEl.setAttribute("role", "status");
+      this.root.appendChild(this.toastEl);
+    }
+    this.toastEl.textContent = message;
+    window.clearTimeout(this.toastTimer);
+    // Reflow so re-triggering the transition works, then show.
+    void this.toastEl.offsetWidth;
+    this.toastEl.classList.add("is-visible");
+    this.toastTimer = window.setTimeout(() => {
+      this.toastEl?.classList.remove("is-visible");
+    }, 2200);
   }
 
   private updateCounter(): void {

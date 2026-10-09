@@ -3,6 +3,7 @@ import "@/styles/globe.css";
 import "@/styles/space.css";
 import "@/styles/map.css";
 import "@/styles/auth.css";
+import "@/styles/dialog.css";
 
 import { App } from "@/app";
 
